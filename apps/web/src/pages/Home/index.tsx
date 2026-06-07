@@ -1,18 +1,31 @@
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDocxUpload } from "@/hooks/use-docx-upload";
 import { useArticleGeneration } from "@/hooks/use-article-generation";
+import { useAuth } from "@/hooks/use-auth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { api } from "@/utils/api";
 import {
   UploadDropzone,
   ParsingLoader,
   PreviewConfirmation,
   UploadSuccess,
   ArticleResultView,
+  ArticleHistory,
 } from "./components";
 import { getHomeViewState } from "./view-state";
 import "./styles.css";
 
+interface SaveArticleResponse {
+  id: string;
+  title: string;
+}
+
 export default function Home() {
+  const navigate = useNavigate();
+  const { user, openLogin } = useAuth();
+
   const {
     file,
     htmlPreview,
@@ -43,6 +56,36 @@ export default function Home() {
     generate,
     reset: resetGeneration,
   } = useArticleGeneration();
+
+  const [isSaving, setIsSaving] = useState(false);
+  // Stores the guest session ID when the user clicks "Save & Edit" before login
+  const pendingGuestSessionRef = useRef<string | null>(null);
+
+  // After login completes, if there's a pending save → execute it
+  useEffect(() => {
+    const guestSessionId = pendingGuestSessionRef.current;
+    if (!guestSessionId || !user || user.isGuest) return;
+
+    // User just logged in, complete the save
+    pendingGuestSessionRef.current = null;
+
+    const saveAfterLogin = async () => {
+      setIsSaving(true);
+      try {
+        const { data } = await api.post<SaveArticleResponse>(
+          "/articles/save",
+          { guestSessionId },
+        );
+        navigate(`/articles/${data.id}`);
+      } catch {
+        setError("Failed to save article. Please try again.");
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    saveAfterLogin();
+  }, [user, navigate, setError]);
 
   const viewState = getHomeViewState({
     file,
@@ -75,7 +118,21 @@ export default function Home() {
     resetGeneration();
   };
 
+  const handleSaveAndEdit = useCallback(async () => {
+    // If user is guest, store session ID and prompt login
+    if (user?.isGuest) {
+      pendingGuestSessionRef.current = user.id;
+      openLogin();
+      return;
+    }
+
+    // User is already logged in — shouldn't normally reach here without a guestSessionId,
+    // but handle it gracefully
+    setError("Please generate an article first, then save.");
+  }, [user, openLogin, setError]);
+
   const isArticleView = viewState === "articleResult";
+  const isRegisteredUser = user && !user.isGuest;
 
   return (
     <div className="flex-1 overflow-auto bg-linear-to-b from-background to-muted/20 p-6 md:p-10">
@@ -115,8 +172,10 @@ export default function Home() {
             isGenerating={isGenerating}
             isComplete={isComplete}
             progress={progress}
+            isSaving={isSaving}
             onBackToPreview={handleBackToPreview}
             onUploadNew={handleCancel}
+            onSaveAndEdit={handleSaveAndEdit}
           />
         )}
 
@@ -156,6 +215,9 @@ export default function Home() {
             formatBytes={formatBytes}
           />
         )}
+
+        {/* Article History — only for registered users */}
+        {isRegisteredUser && <ArticleHistory />}
 
       </div>
     </div>

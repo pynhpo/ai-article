@@ -27,11 +27,16 @@ export const articles = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     sessionId: varchar('session_id', { length: 255 }).notNull(),
     isGuest: boolean('is_guest').default(true).notNull(),
+    userId: uuid('user_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
+    title: varchar('title', { length: 500 }),
     intro: jsonb('intro'),
     mainBody: jsonb('main_body'),
     bestFor: jsonb('best_for'),
     ethics: jsonb('ethics'),
     keyFacts: jsonb('key_facts'),
+    editorContent: jsonb('editor_content'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),

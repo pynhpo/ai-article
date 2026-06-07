@@ -10,3 +10,4 @@ export { MainBodySection } from "./MainBodySection";
 export { BestForSection } from "./BestForSection";
 export { EthicsSection } from "./EthicsSection";
 export { KeyFactsSection } from "./KeyFactsSection";
+export { ArticleHistory } from "./ArticleHistory";

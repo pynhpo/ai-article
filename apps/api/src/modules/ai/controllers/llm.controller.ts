@@ -48,10 +48,8 @@ export class LlmController {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    // Reset the guest's article before starting a new generation
-    if (session.isGuest) {
-      await this.articleService.resetGuestArticle(session.id);
-    }
+    // Reset the session article before starting a new generation
+    await this.articleService.resetGuestArticle(session.id);
 
     this.aiLlmService.generateTravelArticle(dto.roughNotes).subscribe({
       next: (event) => {
@@ -60,7 +58,9 @@ export class LlmController {
         );
 
         // Persist each completed section to DB (fire-and-forget)
-        if (session.isGuest && ARTICLE_SECTION_NAMES.has(event.section)) {
+        // Uses the guest/session article row as a staging area for both
+        // guest and registered users. Permanent save happens via POST /articles/save.
+        if (ARTICLE_SECTION_NAMES.has(event.section)) {
           this.articleService
             .upsertGuestSection(
               session.id,
@@ -69,7 +69,7 @@ export class LlmController {
             )
             .catch((err) => {
               this.logger.error(
-                `Failed to persist section "${event.section}" for guest ${session.id.substring(0, 8)}`,
+                `Failed to persist section "${event.section}" for session ${session.id.substring(0, 8)}`,
                 err,
               );
             });

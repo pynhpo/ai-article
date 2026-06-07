@@ -8,6 +8,7 @@ import {
   Users, 
   Shield, 
   List,
+  PenLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,8 +40,10 @@ interface ArticleResultViewProps {
   isGenerating: boolean;
   isComplete: boolean;
   progress: number;
+  isSaving: boolean;
   onBackToPreview: () => void;
   onUploadNew: () => void;
+  onSaveAndEdit: () => void;
 }
 
 export function ArticleResultView({
@@ -49,8 +52,10 @@ export function ArticleResultView({
   isGenerating,
   isComplete,
   progress,
+  isSaving,
   onBackToPreview,
   onUploadNew,
+  onSaveAndEdit,
 }: ArticleResultViewProps) {
   return (
     <div className="space-y-6">
@@ -69,6 +74,20 @@ export function ArticleResultView({
           <RefreshCw className="size-4" />
           Upload New Document
         </Button>
+        {isComplete && (
+          <Button
+            onClick={onSaveAndEdit}
+            disabled={isSaving}
+            className="gap-2 ml-auto"
+          >
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <PenLine className="size-4" />
+            )}
+            {isSaving ? "Saving..." : "Save & Edit"}
+          </Button>
+        )}
       </div>
 
       {/* Progress Bar */}
