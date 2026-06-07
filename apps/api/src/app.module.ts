@@ -8,12 +8,18 @@ import { AuthGuard } from './modules/auth/guards/auth.guard';
 import { AIModule } from './modules/ai/ai.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { ArticleModule } from './modules/article/article.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env'],
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', '..', 'web', 'dist'),
+      exclude: ['/api/(.*)'],
     }),
     AuthModule,
     AIModule,
