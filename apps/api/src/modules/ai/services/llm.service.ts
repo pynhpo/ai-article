@@ -42,6 +42,20 @@ const SECTION_PROMPTS: Record<ArticleSectionName, string> = {
   keyFacts: `Based on the travel notes provided in the system context, extract all key facts such as price ranges, duration, best season, location details, booking information, or any other factual data points. Each fact should have a descriptive label, the value, and the "sourceExcerpt" from the original notes where this fact was mentioned.`,
 };
 
+/** Prompt to validate input quality before generating article sections */
+const VALIDATION_PROMPT = `Evaluate whether the travel notes provided in the system context are suitable for generating a travel magazine article.
+
+Reject the input if ANY of the following apply:
+- The text is too short (fewer than 50 words of meaningful content)
+- The text is gibberish, random characters, or meaningless filler
+- The text has no relation to travel, places, or experiences
+- The text contains only repetitive or spam-like content
+
+Respond with ONLY valid JSON (no markdown, no code fences):
+{"valid": true} if the input is acceptable
+{"valid": false, "reason": "<short user-facing explanation of why the input was rejected>"} if rejected.
+
+Be lenient with informal or rough writing — real travel notes are often messy. Only reject clearly invalid inputs.`;
 @Injectable()
 export class AILlmService {
   private readonly logger = new Logger(AILlmService.name);
@@ -83,6 +97,18 @@ export class AILlmService {
     );
     this.logger.log(`Prefix cache created: ${previousResponseId}`);
 
+    // Step 1.5: Validate input quality before generating sections
+    const isValid = await this.validateInput(previousResponseId);
+    if (!isValid.valid) {
+      subscriber.next({
+        section: 'error',
+        data: { message: isValid.reason },
+      });
+      subscriber.complete();
+      return;
+    }
+    this.logger.log('Input validation passed');
+
     // Step 2: Fire all section requests in parallel
     const sectionNames: ArticleSectionName[] = [
       'intro',
@@ -115,6 +141,46 @@ export class AILlmService {
 
     subscriber.next({ section: 'complete', data: null });
     subscriber.complete();
+  }
+
+  /**
+   * Validate the cached input to ensure it contains meaningful travel notes.
+   * Uses the prefix cache to avoid re-sending the full text.
+   */
+  private async validateInput(
+    previousResponseId: string,
+  ): Promise<{ valid: boolean; reason: string }> {
+    try {
+      // Reuse the structured section endpoint but cast the result since
+      // the validation schema differs from article section schemas
+      const raw = await this.llmService.generateStructuredSection<ArticleIntro>(
+        VALIDATION_PROMPT,
+        previousResponseId,
+        {
+          name: 'input_validation',
+          schema: {
+            type: 'object',
+            properties: {
+              valid: { type: 'boolean' },
+              reason: { type: 'string' },
+            },
+            required: ['valid'],
+          },
+        },
+        { model: TRAVEL_ARTICLE_MODEL },
+      );
+
+      const result = raw as unknown as { valid: boolean; reason?: string };
+
+      return {
+        valid: result.valid,
+        reason: result.reason ?? 'Input validation failed.',
+      };
+    } catch (err) {
+      this.logger.warn('Input validation call failed, allowing through', err);
+      // If validation itself fails, don't block the user
+      return { valid: true, reason: '' };
+    }
   }
 
   private async generateSection(
