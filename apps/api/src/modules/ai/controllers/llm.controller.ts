@@ -52,6 +52,7 @@ export class LlmController {
     await this.articleService.resetStagingArticle(
       session.id,
       session.isGuest ?? false,
+      dto.roughNotes,
     );
 
     this.aiLlmService.generateTravelArticle(dto.roughNotes).subscribe({

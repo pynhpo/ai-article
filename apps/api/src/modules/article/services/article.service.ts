@@ -67,12 +67,14 @@ export class ArticleService {
   async resetStagingArticle(
     sessionId: string,
     isGuest: boolean,
+    roughNotes?: string,
   ): Promise<void> {
     await this.db
       .insert(articles)
       .values({
         sessionId,
         isGuest,
+        roughNotes: roughNotes ?? null,
         intro: null,
         mainBody: null,
         bestFor: null,
@@ -82,6 +84,7 @@ export class ArticleService {
       .onConflictDoUpdate({
         target: [articles.sessionId, articles.isGuest],
         set: {
+          roughNotes: roughNotes ?? null,
           intro: null,
           mainBody: null,
           bestFor: null,
@@ -146,6 +149,7 @@ export class ArticleService {
         isGuest: false,
         userId,
         title,
+        roughNotes: staging.roughNotes,
         intro: staging.intro,
         mainBody: staging.mainBody,
         bestFor: staging.bestFor,

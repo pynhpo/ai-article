@@ -3,7 +3,6 @@ import * as mammoth from "mammoth";
 import {
   MAX_FILE_SIZE,
   ACCEPTED_FILE_EXTENSIONS,
-  ACCEPTED_MIME_TYPES,
 } from "../pages/Home/constants";
 
 interface UseDocxUploadReturn {
@@ -74,9 +73,8 @@ export function useDocxUpload(): UseDocxUploadReturn {
     // Validate file extension/type
     const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase() || '';
     const isValidExtension = ACCEPTED_FILE_EXTENSIONS.includes(fileExtension);
-    const isValidMimeType = ACCEPTED_MIME_TYPES.includes(selectedFile.type);
 
-    if (!isValidExtension && !isValidMimeType) {
+    if (!isValidExtension) {
       setError("Only .docx files are supported. Please select a valid Word document.");
       return;
     }

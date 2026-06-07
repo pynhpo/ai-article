@@ -5,6 +5,7 @@ import {
   varchar,
   boolean,
   jsonb,
+  text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -31,6 +32,7 @@ export const articles = pgTable(
       onDelete: 'cascade',
     }),
     title: varchar('title', { length: 500 }),
+    roughNotes: text('rough_notes'),
     intro: jsonb('intro'),
     mainBody: jsonb('main_body'),
     bestFor: jsonb('best_for'),
