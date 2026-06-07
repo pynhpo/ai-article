@@ -1,13 +1,30 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res, Logger } from '@nestjs/common';
 import * as express from 'express';
 
 import { AILlmService } from '@/modules/ai/services/llm.service';
 import { GenerateTravelArticleDto } from '@/modules/ai/dto/llm.dto';
 import { Public } from '@/modules/auth/decorators/public.decorator';
+import { User } from '@/modules/auth/decorators/user.decorator';
+import type { SessionUser } from '@/modules/auth/types/user.type';
+import { ArticleService } from '@/modules/article/services/article.service';
+import type { ArticleSectionName } from '@/modules/integration/types/article.type';
+
+const ARTICLE_SECTION_NAMES: Set<string> = new Set([
+  'intro',
+  'mainBody',
+  'bestFor',
+  'ethics',
+  'keyFacts',
+]);
 
 @Controller('ai/llm')
 export class LlmController {
-  constructor(private readonly aiLlmService: AILlmService) {}
+  private readonly logger = new Logger(LlmController.name);
+
+  constructor(
+    private readonly aiLlmService: AILlmService,
+    private readonly articleService: ArticleService,
+  ) {}
 
   /**
    * POST /ai/llm/travel-article
@@ -20,8 +37,9 @@ export class LlmController {
    */
   @Post('travel-article')
   @Public()
-  generateTravelArticle(
+  async generateTravelArticle(
     @Body() dto: GenerateTravelArticleDto,
+    @User() session: SessionUser,
     @Res() res: express.Response,
   ) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -30,11 +48,32 @@ export class LlmController {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    // Reset the guest's article before starting a new generation
+    if (session.isGuest) {
+      await this.articleService.resetGuestArticle(session.id);
+    }
+
     this.aiLlmService.generateTravelArticle(dto.roughNotes).subscribe({
       next: (event) => {
         res.write(
           `event: ${event.section}\ndata: ${JSON.stringify(event.data)}\n\n`,
         );
+
+        // Persist each completed section to DB (fire-and-forget)
+        if (session.isGuest && ARTICLE_SECTION_NAMES.has(event.section)) {
+          this.articleService
+            .upsertGuestSection(
+              session.id,
+              event.section as ArticleSectionName,
+              event.data,
+            )
+            .catch((err) => {
+              this.logger.error(
+                `Failed to persist section "${event.section}" for guest ${session.id.substring(0, 8)}`,
+                err,
+              );
+            });
+        }
       },
       error: (err) => {
         const message = err instanceof Error ? err.message : String(err);

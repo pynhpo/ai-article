@@ -7,6 +7,7 @@ import { SessionMiddleware } from './modules/auth/middlewares/session.middleware
 import { AuthGuard } from './modules/auth/guards/auth.guard';
 import { AIModule } from './modules/ai/ai.module';
 import { IntegrationModule } from './modules/integration/integration.module';
+import { ArticleModule } from './modules/article/article.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { IntegrationModule } from './modules/integration/integration.module';
     AIModule,
     IntegrationModule,
     DatabaseModule,
+    ArticleModule,
   ],
   providers: [
     {

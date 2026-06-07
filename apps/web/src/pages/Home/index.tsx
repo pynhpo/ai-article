@@ -39,6 +39,7 @@ export default function Home() {
     isComplete,
     error: generationError,
     progress,
+    hasExistingArticle,
     generate,
     reset: resetGeneration,
   } = useArticleGeneration();
@@ -51,6 +52,7 @@ export default function Home() {
     uploadSuccess,
     isGenerating,
     isComplete,
+    hasExistingArticle,
   });
 
   const displayError = uploadError || generationError;

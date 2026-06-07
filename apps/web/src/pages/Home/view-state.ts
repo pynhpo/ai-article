@@ -20,12 +20,13 @@ interface HomeViewStateParams {
   uploadSuccess: boolean;
   isGenerating: boolean;
   isComplete: boolean;
+  hasExistingArticle: boolean;
 }
 
 export function getHomeViewState(params: HomeViewStateParams): HomeViewState {
-  const { file, htmlPreview, extractedText, loading, uploadSuccess, isGenerating, isComplete } = params;
+  const { file, htmlPreview, extractedText, loading, uploadSuccess, isGenerating, isComplete, hasExistingArticle } = params;
   
-  const showArticleResult = isGenerating || isComplete;
+  const showArticleResult = isGenerating || isComplete || hasExistingArticle;
 
   if (showArticleResult) {
     return "articleResult";

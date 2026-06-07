@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { api } from "@/utils/api";
 import type {
   ArticleResult,
   ArticleSectionName,
@@ -6,6 +7,10 @@ import type {
 import { ALL_SECTIONS, TOTAL_SECTIONS } from "../pages/Home/types";
 
 const MAX_ROUGH_NOTES_WORDS = 50_000;
+
+interface SavedArticleResponse {
+  article: ArticleResult | null;
+}
 
 interface UseArticleGenerationReturn {
   /** Aggregated article result with all completed sections */
@@ -20,6 +25,10 @@ interface UseArticleGenerationReturn {
   error: string | null;
   /** Progress percentage (0–100) */
   progress: number;
+  /** Whether a saved article is being loaded from the server */
+  isLoadingSaved: boolean;
+  /** Whether a previously saved article exists and has been loaded */
+  hasExistingArticle: boolean;
   /** Start generating the article from rough notes */
   generate: (roughNotes: string) => void;
   /** Reset all state */
@@ -43,8 +52,47 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  const [hasExistingArticle, setHasExistingArticle] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+
+  // Load saved article from server on mount
+  useEffect(() => {
+    const loadSavedArticle = async () => {
+      try {
+        const { data } = await api.get<SavedArticleResponse>(
+          "/articles/current",
+        );
+
+        if (!data.article) return;
+
+        const savedArticle = data.article;
+
+        // Determine which sections have data
+        const sections = new Set<ArticleSectionName>();
+        for (const section of ALL_SECTIONS) {
+          if (savedArticle[section] != null) {
+            sections.add(section);
+          }
+        }
+
+        if (sections.size === 0) return;
+
+        setArticle(savedArticle);
+        setCompletedSections(sections);
+        setProgress(Math.round((sections.size / TOTAL_SECTIONS) * 100));
+        setIsComplete(sections.size === TOTAL_SECTIONS);
+        setHasExistingArticle(true);
+      } catch {
+        // Silently fail — guest may not have any saved article
+      } finally {
+        setIsLoadingSaved(false);
+      }
+    };
+
+    loadSavedArticle();
+  }, []);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -55,6 +103,7 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
     setIsComplete(false);
     setError(null);
     setProgress(0);
+    setHasExistingArticle(false);
   }, []);
 
   const generate = useCallback((roughNotes: string) => {
@@ -75,6 +124,7 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
     setIsComplete(false);
     setError(null);
     setProgress(0);
+    setHasExistingArticle(false);
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -127,6 +177,7 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
                 setIsComplete(true);
                 setIsGenerating(false);
                 setProgress(100);
+                setHasExistingArticle(true);
                 return;
               }
 
@@ -182,6 +233,7 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
         setIsGenerating(false);
         setIsComplete(true);
         setProgress(100);
+        setHasExistingArticle(true);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -201,7 +253,10 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
     isComplete,
     error,
     progress,
+    isLoadingSaved,
+    hasExistingArticle,
     generate,
     reset,
   };
 }
+
