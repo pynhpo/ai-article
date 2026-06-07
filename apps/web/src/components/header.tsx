@@ -16,15 +16,14 @@ export function Header() {
         {isAccountPage ? (
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <ArrowLeft className="size-3.5" />
             Back to Home
           </button>
         ) : (
           <span
-            onClick={() => navigate("/")}
-            className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-foreground hover:opacity-80"
+            className="text-xs font-semibold uppercase tracking-wider text-foreground hover:opacity-80 cursor-default"
           >
             AI Article Generation
           </span>
@@ -41,7 +40,7 @@ export function Header() {
               variant="outline"
               size="sm"
               onClick={openLogin}
-              className="h-8 gap-1.5 rounded-lg text-xs"
+              className="h-8 gap-1.5 rounded-lg text-xs cursor-pointer"
             >
               <LogIn className="size-3.5 text-muted-foreground" />
               Sign In
@@ -53,7 +52,7 @@ export function Header() {
               variant="ghost"
               size="sm"
               onClick={() => navigate("/account")}
-              className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
+              className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <UserIcon className="size-3.5 text-muted-foreground" />
               {user?.username || user?.email?.split("@")[0] || "Profile"}
@@ -62,7 +61,7 @@ export function Header() {
               variant="ghost"
               size="sm"
               onClick={onLogout}
-              className="h-8 gap-1.5 rounded-lg text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="h-8 gap-1.5 rounded-lg text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
             >
               <LogOut className="size-3.5" />
               Sign Out

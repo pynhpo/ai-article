@@ -95,14 +95,6 @@ export default function Account() {
             <div className="space-y-3">
               <Button
                 variant="outline"
-                className="h-12 w-full justify-start gap-3 rounded-xl"
-                onClick={() => {}}
-              >
-                <Shield className="size-4 text-muted-foreground" />
-                Security Settings
-              </Button>
-              <Button
-                variant="outline"
                 className="h-12 w-full justify-start gap-3 rounded-xl border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={onLogout}
               >
