@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNotNull } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { type Database } from '../../database/database.module';
 import { articles } from '../../database/schema';
@@ -171,7 +171,13 @@ export class ArticleService {
     return this.db
       .select()
       .from(articles)
-      .where(and(eq(articles.userId, userId), eq(articles.isGuest, false)))
+      .where(
+        and(
+          eq(articles.userId, userId),
+          eq(articles.isGuest, false),
+          isNotNull(articles.mainBody),
+        ),
+      )
       .orderBy(desc(articles.updatedAt));
   }
 
