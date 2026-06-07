@@ -74,7 +74,7 @@ export default function Home() {
       try {
         const { data } = await api.post<SaveArticleResponse>(
           "/articles/save",
-          { guestSessionId },
+          { guestSessionId, isGuest: true },
         );
         navigate(`/articles/${data.id}`);
       } catch {
@@ -126,10 +126,23 @@ export default function Home() {
       return;
     }
 
-    // User is already logged in — shouldn't normally reach here without a guestSessionId,
-    // but handle it gracefully
-    setError("Please generate an article first, then save.");
-  }, [user, openLogin, setError]);
+    // User is already logged in — save directly using their session ID
+    // (the staging article was stored under sessionId = userId during SSE)
+    if (!user) return;
+
+    setIsSaving(true);
+    try {
+      const { data } = await api.post<SaveArticleResponse>(
+        "/articles/save",
+        { guestSessionId: user.id, isGuest: false },
+      );
+      navigate(`/articles/${data.id}`);
+    } catch {
+      setError("Failed to save article. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, openLogin, setError, navigate]);
 
   const isArticleView = viewState === "articleResult";
   const isRegisteredUser = user && !user.isGuest;

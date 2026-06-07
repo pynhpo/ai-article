@@ -22,16 +22,15 @@ export class ArticleController {
   /**
    * GET /articles/current
    *
-   * Returns the current article for the session user (guest or logged-in).
+   * Returns the current staging article for the session (guest or logged-in).
    * Returns null if no article has been generated yet.
    */
   @Get('current')
   @Public()
   async getCurrentArticle(@User() session: SessionUser) {
-    const isGuest = session.isGuest ?? false;
-    const article = await this.articleService.getArticleBySession(
+    const article = await this.articleService.getStagingArticle(
       session.id,
-      isGuest,
+      session.isGuest ?? false,
     );
 
     if (!article) {
@@ -52,12 +51,13 @@ export class ArticleController {
   /**
    * POST /articles/save
    *
-   * Save the current guest article as a new article for the logged-in user.
-   * Frontend must provide the guestSessionId that was active before login.
+   * Save the current staging article as a permanent article for the logged-in user.
+   * Body must include the staging session's ID and isGuest flag so we can find it.
    */
   @Post('save')
   async saveArticle(
-    @Body('guestSessionId') guestSessionId: string,
+    @Body('guestSessionId') stagingSessionId: string,
+    @Body('isGuest') stagingIsGuest: boolean,
     @User() session: SessionUser,
   ) {
     if (session.isGuest) {
@@ -66,13 +66,14 @@ export class ArticleController {
       );
     }
 
-    if (!guestSessionId) {
-      throw new NotFoundException('No guest session ID provided');
+    if (!stagingSessionId) {
+      throw new NotFoundException('No staging session ID provided');
     }
 
     const savedArticle = await this.articleService.saveArticleForUser(
       session.id,
-      guestSessionId,
+      stagingSessionId,
+      stagingIsGuest ?? true,
     );
 
     return {

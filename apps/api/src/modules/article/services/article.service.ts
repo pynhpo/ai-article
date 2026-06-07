@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { eq, and, desc } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 import { type Database } from '../../database/database.module';
 import { articles } from '../../database/schema';
 import { type Article } from '../../database/articles';
@@ -26,14 +27,17 @@ export class ArticleService {
 
   constructor(@Inject('DATABASE_CONNECTION') private readonly db: Database) {}
 
-  // ─── Guest Methods ──────────────────────────────────────
+  // ─── Staging Methods ────────────────────────────────────
+  // Staging = temporary article being generated via SSE.
+  // One staging article per session, identified by (sessionId, isGuest).
 
   /**
-   * Upsert a single section into the guest's article row.
+   * Upsert a single section into the staging article row.
    * Creates the row if it doesn't exist, otherwise updates the section column.
    */
-  async upsertGuestSection(
+  async upsertStagingSection(
     sessionId: string,
+    isGuest: boolean,
     sectionName: ArticleSectionName,
     data: unknown,
   ): Promise<void> {
@@ -43,7 +47,7 @@ export class ArticleService {
       .insert(articles)
       .values({
         sessionId,
-        isGuest: true,
+        isGuest,
         [column]: data,
       })
       .onConflictDoUpdate({
@@ -52,20 +56,23 @@ export class ArticleService {
       });
 
     this.logger.debug(
-      `Upserted section "${sectionName}" for guest ${sessionId.substring(0, 8)}`,
+      `Upserted section "${sectionName}" for session ${sessionId.substring(0, 8)}`,
     );
   }
 
   /**
-   * Reset all sections for a guest before starting a new generation.
+   * Reset all sections for a staging article before starting a new generation.
    * This ensures stale sections from a previous generation are cleared.
    */
-  async resetGuestArticle(sessionId: string): Promise<void> {
+  async resetStagingArticle(
+    sessionId: string,
+    isGuest: boolean,
+  ): Promise<void> {
     await this.db
       .insert(articles)
       .values({
         sessionId,
-        isGuest: true,
+        isGuest,
         intro: null,
         mainBody: null,
         bestFor: null,
@@ -83,14 +90,16 @@ export class ArticleService {
         },
       });
 
-    this.logger.debug(`Reset article for guest ${sessionId.substring(0, 8)}`);
+    this.logger.debug(
+      `Reset staging article for session ${sessionId.substring(0, 8)}`,
+    );
   }
 
   /**
-   * Retrieve the current article for a session (guest or logged-in).
+   * Retrieve the current staging article for a session.
    * Returns null if no article exists.
    */
-  async getArticleBySession(
+  async getStagingArticle(
     sessionId: string,
     isGuest: boolean,
   ): Promise<Article | null> {
@@ -108,34 +117,40 @@ export class ArticleService {
   // ─── Registered User Methods ────────────────────────────
 
   /**
-   * Save a guest article as a new article owned by a registered user.
-   * Copies all 5 sections from the guest article and generates a title
-   * from the intro hook.
+   * Save a staging article as a new permanent article owned by a registered user.
+   * Copies all 5 sections from the staging row and generates a title from the intro hook.
+   *
+   * The saved article gets its own random sessionId so it doesn't conflict
+   * with the staging row's unique constraint (sessionId, isGuest).
    */
   async saveArticleForUser(
     userId: string,
-    guestSessionId: string,
+    stagingSessionId: string,
+    stagingIsGuest: boolean,
   ): Promise<Article> {
-    const guestArticle = await this.getArticleBySession(guestSessionId, true);
+    const staging = await this.getStagingArticle(
+      stagingSessionId,
+      stagingIsGuest,
+    );
 
-    if (!guestArticle) {
-      throw new Error('No guest article found to save');
+    if (!staging) {
+      throw new Error('No staging article found to save');
     }
 
-    const title = this.generateTitle(guestArticle.intro);
+    const title = this.generateTitle(staging.intro);
 
     const [savedArticle] = await this.db
       .insert(articles)
       .values({
-        sessionId: userId,
+        sessionId: randomUUID(),
         isGuest: false,
         userId,
         title,
-        intro: guestArticle.intro,
-        mainBody: guestArticle.mainBody,
-        bestFor: guestArticle.bestFor,
-        ethics: guestArticle.ethics,
-        keyFacts: guestArticle.keyFacts,
+        intro: staging.intro,
+        mainBody: staging.mainBody,
+        bestFor: staging.bestFor,
+        ethics: staging.ethics,
+        keyFacts: staging.keyFacts,
       })
       .returning();
 
