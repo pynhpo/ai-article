@@ -12,6 +12,11 @@ interface SavedArticleResponse {
   article: ArticleResult | null;
 }
 
+interface UseArticleGenerationOptions {
+  /** Whether to load saved article from server on mount (default: true, only for guests) */
+  loadSavedOnMount?: boolean;
+}
+
 interface UseArticleGenerationReturn {
   /** Aggregated article result with all completed sections */
   article: ArticleResult;
@@ -33,6 +38,8 @@ interface UseArticleGenerationReturn {
   generate: (roughNotes: string) => void;
   /** Reset all state */
   reset: () => void;
+  /** Load article data externally (e.g. from history selection) */
+  loadArticle: (data: ArticleResult) => void;
 }
 
 const EMPTY_ARTICLE: ArticleResult = {
@@ -43,7 +50,11 @@ const EMPTY_ARTICLE: ArticleResult = {
   keyFacts: null,
 };
 
-export function useArticleGeneration(): UseArticleGenerationReturn {
+export function useArticleGeneration(
+  options: UseArticleGenerationOptions = {},
+): UseArticleGenerationReturn {
+  const { loadSavedOnMount = true } = options;
+
   const [article, setArticle] = useState<ArticleResult>(EMPTY_ARTICLE);
   const [completedSections, setCompletedSections] = useState<
     Set<ArticleSectionName>
@@ -57,8 +68,13 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
 
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load saved article from server on mount
+  // Load saved article from server on mount (only for guests)
   useEffect(() => {
+    if (!loadSavedOnMount) {
+      setIsLoadingSaved(false);
+      return;
+    }
+
     const loadSavedArticle = async () => {
       try {
         const { data } = await api.get<SavedArticleResponse>(
@@ -92,7 +108,7 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
     };
 
     loadSavedArticle();
-  }, []);
+  }, [loadSavedOnMount]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -246,6 +262,25 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
       });
   }, []);
 
+  /** Load article data externally (e.g. from history selection) */
+  const loadArticle = useCallback((data: ArticleResult) => {
+    setArticle(data);
+
+    const sections = new Set<ArticleSectionName>();
+    for (const section of ALL_SECTIONS) {
+      if (data[section] != null) {
+        sections.add(section);
+      }
+    }
+
+    setCompletedSections(sections);
+    setProgress(Math.round((sections.size / TOTAL_SECTIONS) * 100));
+    setIsComplete(sections.size === TOTAL_SECTIONS);
+    setHasExistingArticle(true);
+    setIsGenerating(false);
+    setError(null);
+  }, []);
+
   return {
     article,
     completedSections,
@@ -257,6 +292,7 @@ export function useArticleGeneration(): UseArticleGenerationReturn {
     hasExistingArticle,
     generate,
     reset,
+    loadArticle,
   };
 }
 

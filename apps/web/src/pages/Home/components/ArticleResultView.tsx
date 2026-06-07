@@ -41,6 +41,7 @@ interface ArticleResultViewProps {
   isComplete: boolean;
   progress: number;
   isSaving: boolean;
+  isLoggedIn: boolean;
   onBackToPreview: () => void;
   onUploadNew: () => void;
   onSaveAndEdit: () => void;
@@ -53,6 +54,7 @@ export function ArticleResultView({
   isComplete,
   progress,
   isSaving,
+  isLoggedIn,
   onBackToPreview,
   onUploadNew,
   onSaveAndEdit,
@@ -85,7 +87,7 @@ export function ArticleResultView({
             ) : (
               <PenLine className="size-4" />
             )}
-            {isSaving ? "Saving..." : "Save & Edit"}
+            {isSaving ? "Saving..." : isLoggedIn ? "Edit" : "Save & Edit"}
           </Button>
         )}
       </div>

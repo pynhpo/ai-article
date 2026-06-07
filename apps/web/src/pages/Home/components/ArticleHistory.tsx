@@ -25,7 +25,12 @@ interface ArticleHistoryItem {
   updatedAt: string;
 }
 
-export function ArticleHistory() {
+interface ArticleHistoryProps {
+  /** Called when user selects an article from history */
+  onSelect?: (articleId: string) => void;
+}
+
+export function ArticleHistory({ onSelect }: ArticleHistoryProps) {
   const navigate = useNavigate();
   const [articles, setArticles] = useState<ArticleHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +106,7 @@ export function ArticleHistory() {
             <Card
               key={article.id}
               className="group min-w-[280px] max-w-[320px] shrink-0 border-border/60 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer"
-              onClick={() => navigate(`/articles/${article.id}`)}
+              onClick={() => onSelect ? onSelect(article.id) : navigate(`/articles/${article.id}`)}
             >
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">

@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { api } from "@/utils/api";
+import type { ArticleResult } from "./types";
 import {
   UploadDropzone,
   ParsingLoader,
@@ -22,9 +23,22 @@ interface SaveArticleResponse {
   title: string;
 }
 
+interface ArticleDetailResponse {
+  id: string;
+  title: string | null;
+  intro: ArticleResult["intro"];
+  mainBody: ArticleResult["mainBody"];
+  bestFor: ArticleResult["bestFor"];
+  ethics: ArticleResult["ethics"];
+  keyFacts: ArticleResult["keyFacts"];
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const { user, openLogin } = useAuth();
+
+  const isGuest = user?.isGuest !== false;
+  const isLoggedIn = !isGuest;
 
   const {
     file,
@@ -55,11 +69,14 @@ export default function Home() {
     hasExistingArticle,
     generate,
     reset: resetGeneration,
-  } = useArticleGeneration();
+    loadArticle,
+  } = useArticleGeneration({ loadSavedOnMount: isGuest });
 
   const [isSaving, setIsSaving] = useState(false);
   // Stores the guest session ID when the user clicks "Save & Edit" before login
   const pendingGuestSessionRef = useRef<string | null>(null);
+  // Tracks the saved article ID for the "Edit" button (registered users)
+  const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
 
   // After login completes, if there's a pending save → execute it
   useEffect(() => {
@@ -87,6 +104,28 @@ export default function Home() {
     saveAfterLogin();
   }, [user, navigate, setError]);
 
+  // Auto-save for registered users when generation completes
+  useEffect(() => {
+    if (!isLoggedIn || !isComplete || !user || savedArticleId) return;
+
+    const autoSave = async () => {
+      setIsSaving(true);
+      try {
+        const { data } = await api.post<SaveArticleResponse>(
+          "/articles/save",
+          { guestSessionId: user.id, isGuest: false },
+        );
+        setSavedArticleId(data.id);
+      } catch {
+        // Silently fail — user can still click "Edit" to retry
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    autoSave();
+  }, [isLoggedIn, isComplete, user, savedArticleId]);
+
   const viewState = getHomeViewState({
     file,
     htmlPreview,
@@ -106,28 +145,36 @@ export default function Home() {
       return;
     }
     setError(null);
+    setSavedArticleId(null);
     generate(extractedText);
   };
 
   const handleCancel = () => {
     resetUpload();
     resetGeneration();
+    setSavedArticleId(null);
   };
 
   const handleBackToPreview = () => {
     resetGeneration();
+    setSavedArticleId(null);
   };
 
   const handleSaveAndEdit = useCallback(async () => {
-    // If user is guest, store session ID and prompt login
+    // Guest: store session ID and prompt login
     if (user?.isGuest) {
       pendingGuestSessionRef.current = user.id;
       openLogin();
       return;
     }
 
-    // User is already logged in — save directly using their session ID
-    // (the staging article was stored under sessionId = userId during SSE)
+    // Registered user: navigate to editor (article already auto-saved)
+    if (savedArticleId) {
+      navigate(`/articles/${savedArticleId}`);
+      return;
+    }
+
+    // Edge case: article not yet auto-saved, save now
     if (!user) return;
 
     setIsSaving(true);
@@ -142,10 +189,33 @@ export default function Home() {
     } finally {
       setIsSaving(false);
     }
-  }, [user, openLogin, setError, navigate]);
+  }, [user, openLogin, setError, navigate, savedArticleId]);
+
+  // Handle history article selection → load into ArticleResultView
+  const handleHistorySelect = useCallback(
+    async (articleId: string) => {
+      try {
+        const { data } = await api.get<ArticleDetailResponse>(
+          `/articles/${articleId}`,
+        );
+
+        loadArticle({
+          intro: data.intro,
+          mainBody: data.mainBody,
+          bestFor: data.bestFor,
+          ethics: data.ethics,
+          keyFacts: data.keyFacts,
+        });
+
+        setSavedArticleId(data.id);
+      } catch {
+        setError("Failed to load article.");
+      }
+    },
+    [loadArticle, setError],
+  );
 
   const isArticleView = viewState === "articleResult";
-  const isRegisteredUser = user && !user.isGuest;
 
   return (
     <div className="flex-1 overflow-auto bg-linear-to-b from-background to-muted/20 p-6 md:p-10">
@@ -186,6 +256,7 @@ export default function Home() {
             isComplete={isComplete}
             progress={progress}
             isSaving={isSaving}
+            isLoggedIn={isLoggedIn}
             onBackToPreview={handleBackToPreview}
             onUploadNew={handleCancel}
             onSaveAndEdit={handleSaveAndEdit}
@@ -230,7 +301,7 @@ export default function Home() {
         )}
 
         {/* Article History — only for registered users */}
-        {isRegisteredUser && <ArticleHistory />}
+        {isLoggedIn && <ArticleHistory onSelect={handleHistorySelect} />}
 
       </div>
     </div>
