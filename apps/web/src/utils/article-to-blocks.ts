@@ -19,7 +19,7 @@ export function articleToBlocks(article: ArticleResult): Block[] {
 
   // ─── Main Body Sections ─────────────────────────────────
   if (article.mainBody?.sections?.length) {
-    blocks.push(createHeading("Main Article", 1));
+    blocks.push(createHeading("The Story", 1));
 
     for (const section of article.mainBody.sections) {
       blocks.push(
