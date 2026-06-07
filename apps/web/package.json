@@ -49,6 +49,7 @@
     "firebase": "^12.14.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.454.0",
+    "mammoth": "^1.12.0",
     "postcss": "^8.5.13",
     "react": "^19.2.5",
     "react-day-picker": "^10.0.1",
