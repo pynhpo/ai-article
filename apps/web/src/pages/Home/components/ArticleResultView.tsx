@@ -70,7 +70,7 @@ export function ArticleResultView({
           className="gap-2"
         >
           <ArrowLeft className="size-4" />
-          Back to Preview
+          Back
         </Button>
         <Button onClick={onUploadNew} variant="outline" className="gap-2">
           <RefreshCw className="size-4" />
